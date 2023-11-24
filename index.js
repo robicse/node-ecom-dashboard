@@ -3,6 +3,9 @@ const app = express();
 
 const cors = require("cors");
 
+const Jwt = require("jsonwebtoken");
+const jwtKey = "e-com";
+
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
@@ -31,7 +34,21 @@ app.post(`/signup`, async (req, res) => {
         password,
       },
     });
-    res.json(result);
+    if (result) {
+      Jwt.sign({ result }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+        if (err) {
+          res.status(401).json({
+            success: false,
+            message: "Something went wrong!",
+          });
+        }
+        res.status(200).json({
+          success: true,
+          result: result,
+          auth: token,
+        });
+      });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error" });
@@ -55,9 +72,18 @@ app.post(`/login`, async (req, res) => {
       },
     });
     if (result) {
-      res.status(200).json({
-        success: true,
-        result: result,
+      Jwt.sign({ result }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+        if (err) {
+          res.status(401).json({
+            success: false,
+            message: "Something went wrong!",
+          });
+        }
+        res.status(200).json({
+          success: true,
+          result: result,
+          auth: token,
+        });
       });
     } else {
       res.status(401).json({
@@ -73,7 +99,7 @@ app.post(`/login`, async (req, res) => {
   }
 });
 
-app.get("/products", async (req, res) => {
+app.get("/products", verifyToken, async (req, res) => {
   try {
     const products = await prisma.product.findMany();
     if (products.length > 0) {
@@ -95,7 +121,7 @@ app.get("/products", async (req, res) => {
   }
 });
 
-app.post(`/product`, async (req, res) => {
+app.post(`/add-product`, verifyToken, async (req, res) => {
   try {
     if (
       !req.body.name ||
@@ -139,7 +165,7 @@ app.post(`/product`, async (req, res) => {
   }
 });
 
-app.delete(`/product/:id`, async (req, res) => {
+app.delete(`/product/:id`, verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const productId = Number(id);
@@ -186,7 +212,7 @@ app.get(`/product/:id`, async (req, res) => {
   }
 });
 
-app.put(`/product/:id`, async (req, res) => {
+app.put(`/product/:id`, verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const productId = Number(id);
@@ -215,7 +241,7 @@ app.put(`/product/:id`, async (req, res) => {
   }
 });
 
-app.get("/search/:key", async (req, res) => {
+app.get("/search/:key", verifyToken, async (req, res) => {
   try {
     const { key } = req.params;
     const products = await prisma.product.findMany({
@@ -245,5 +271,24 @@ app.get("/search/:key", async (req, res) => {
     await prisma.$disconnect(); // Disconnect from the Prisma client
   }
 });
+
+function verifyToken(req, res, next) {
+  // const token = req.headers["Authorization"];
+  const token = req.headers.authorization;
+  if (token) {
+    const authToken = token.split(" ")[1];
+    Jwt.verify(authToken, jwtKey, (err, valid) => {
+      if (err) {
+        // console.log("11");
+        res.status(401).json({ result: "Please provide valid token" });
+      } else {
+        // console.log("22");
+        next();
+      }
+    });
+  } else {
+    res.status(403).json({ result: "Please add token with headers" });
+  }
+}
 
 app.listen(5000, () => console.log(`Server ready at: http://localhost:5000`));
