@@ -9,6 +9,13 @@ const jwtKey = "e-com";
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+const { ROLE, users } = require("./data");
+const { authUser, authRole } = require("./basicAuth");
+
+const productRouter = require("./routes/products");
+
+app.use("/products", productRouter);
+
 app.use(express.json({ limit: "2500mb" }));
 app.use(express.urlencoded({ limit: "2500mb" }));
 app.use(cors());
@@ -99,28 +106,6 @@ app.post(`/login`, async (req, res) => {
   }
 });
 
-app.get("/products", verifyToken, async (req, res) => {
-  try {
-    const products = await prisma.product.findMany();
-    if (products.length > 0) {
-      res.status(200).json({
-        success: true,
-        result: products,
-      });
-    } else {
-      res.status(200).json({
-        success: false,
-        result: "No products found.",
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    await prisma.$disconnect(); // Disconnect from the Prisma client
-  }
-});
-
 app.post(`/add-product`, verifyToken, async (req, res) => {
   try {
     if (
@@ -165,54 +150,61 @@ app.post(`/add-product`, verifyToken, async (req, res) => {
   }
 });
 
-app.delete(`/product/:id`, verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const productId = Number(id);
+// only admin can delete product
+// app.delete(
+//   `/product/:id`,
+//   verifyToken,
+//   authRole(ROLE.ADMIN),
+//   async (req, res) => {
+//     try {
+//       const { id } = req.params;
+//       const productId = Number(id);
 
-    const existingPost = await prisma.product.findUnique({
-      where: { id: productId },
-    });
+//       const existingPost = await prisma.product.findUnique({
+//         where: { id: productId },
+//       });
 
-    if (!existingPost) {
-      return res.status(404).json({ error: "Post not found" });
-    }
+//       if (!existingPost) {
+//         return res.status(404).json({ error: "Post not found" });
+//       }
 
-    const deletedPost = await prisma.product.delete({
-      where: { id: productId },
-    });
+//       const deletedPost = await prisma.product.delete({
+//         where: { id: productId },
+//       });
 
-    res.json(deletedPost);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    await prisma.$disconnect(); // Disconnect from the Prisma client
-  }
-});
+//       res.json(deletedPost);
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ error: "Internal server error" });
+//     } finally {
+//       await prisma.$disconnect(); // Disconnect from the Prisma client
+//     }
+//   }
+// );
 
-app.get(`/product/:id`, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const productId = Number(id);
+// app.get(`/product/:id`, async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const productId = Number(id);
 
-    const existingPost = await prisma.product.findUnique({
-      where: { id: productId },
-    });
+//     const existingPost = await prisma.product.findUnique({
+//       where: { id: productId },
+//     });
 
-    if (!existingPost) {
-      return res.status(404).json({ error: "Post not found" });
-    }
-    res.json(existingPost);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    await prisma.$disconnect(); // Disconnect from the Prisma client
-  }
-});
+//     if (!existingPost) {
+//       return res.status(404).json({ error: "Post not found" });
+//     }
+//     res.json(existingPost);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Internal server error" });
+//   } finally {
+//     await prisma.$disconnect(); // Disconnect from the Prisma client
+//   }
+// });
 
-app.put(`/product/:id`, verifyToken, async (req, res) => {
+// only admin can update product
+app.put(`/product/:id`, verifyToken, authRole(ROLE.ADMIN), async (req, res) => {
   try {
     const { id } = req.params;
     const productId = Number(id);
@@ -283,6 +275,12 @@ function verifyToken(req, res, next) {
         res.status(401).json({ result: "Please provide valid token" });
       } else {
         // console.log("22");
+        // const decodedToken = util.promisify(Jwt.verify)(authToken, jwtKey);
+        const decoded = Jwt.verify(authToken, jwtKey);
+        // req.user = decoded.userId
+        // console.log("decoded", decoded);
+        // console.log("decoded?.result", decoded.result);
+        req.user = decoded?.result;
         next();
       }
     });
