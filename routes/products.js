@@ -26,7 +26,11 @@ router.use(async (req, res, next) => {
 });
 
 router.get("/", verifyToken, async (req, res) => {
-  const products = await prisma.product.findMany();
+  const products = await prisma.product.findMany({
+    include: {
+      users: true
+    }
+  });
   res.json(scopedProducts(req.user, products));
 });
 

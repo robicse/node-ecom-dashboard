@@ -182,26 +182,26 @@ app.post(`/add-product`, verifyToken, async (req, res) => {
 //   }
 // );
 
-// app.get(`/product/:id`, async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const productId = Number(id);
+app.get(`/product/:id`, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const productId = Number(id);
 
-//     const existingPost = await prisma.product.findUnique({
-//       where: { id: productId },
-//     });
+    const existingPost = await prisma.product.findUnique({
+      where: { id: productId },
+    });
 
-//     if (!existingPost) {
-//       return res.status(404).json({ error: "Post not found" });
-//     }
-//     res.json(existingPost);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Internal server error" });
-//   } finally {
-//     await prisma.$disconnect(); // Disconnect from the Prisma client
-//   }
-// });
+    if (!existingPost) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    res.json(existingPost);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    await prisma.$disconnect(); // Disconnect from the Prisma client
+  }
+});
 
 // only admin can update product
 app.put(`/product/:id`, verifyToken, authRole(ROLE.ADMIN), async (req, res) => {
